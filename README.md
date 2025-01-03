@@ -1,377 +1,250 @@
-# PRBMath [![GitHub Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![Styled with Prettier][prettier-badge]][prettier] [![License: MIT][license-badge]][license]
+# Forge Standard Library • [![CI status](https://github.com/foundry-rs/forge-std/actions/workflows/ci.yml/badge.svg)](https://github.com/foundry-rs/forge-std/actions/workflows/ci.yml)
 
-[gha]: https://github.com/PaulRBerg/prb-math/actions
-[gha-badge]: https://github.com/PaulRBerg/prb-math/actions/workflows/ci.yml/badge.svg
-[foundry]: https://getfoundry.sh/
-[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
-[prettier]: https://prettier.io
-[prettier-badge]: https://img.shields.io/badge/Code_Style-Prettier-ff69b4.svg
-[license]: https://opensource.org/licenses/MIT
-[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+Forge Standard Library is a collection of helpful contracts and libraries for use with [Forge and Foundry](https://github.com/foundry-rs/foundry). It leverages Forge's cheatcodes to make writing tests easier and faster, while improving the UX of cheatcodes.
 
-**Solidity library for advanced fixed-point math** that operates with signed 59.18-decimal fixed-point and unsigned 60.18-decimal fixed-point numbers.
-The name of the number format is due to the integer part having up to 59/60 decimals and the fractional part having up to 18 decimals. The numbers are
-bound by the minimum and the maximum values permitted by the Solidity types int256 and uint256.
-
-- Operates with signed and unsigned denary fixed-point numbers, with 18 trailing decimals
-- Offers advanced math functions like logarithms, exponentials, powers and square roots
-- Provides type safety via user-defined value types
-- Gas efficient, but still user-friendly
-- Ergonomic developer experience thanks to using free functions instead of libraries
-- Bakes in overflow-safe multiplication and division
-- Reverts with custom errors instead of reason strings
-- Well-documented with NatSpec comments
-- Built and tested with Foundry
-
-I created this because I wanted a fixed-point math library that is at the same time intuitive, efficient and safe. I looked at
-[ABDKMath64x64](https://github.com/abdk-consulting/abdk-libraries-solidity), which is fast, but it uses binary numbers which are counter-intuitive and
-non-familiar to humans. Then, I looked at [Fixidity](https://github.com/CementDAO/Fixidity), which operates with denary numbers and has wide
-precision, but is slow and susceptible to phantom overflow. Finally, I looked at [Solmate](https://github.com/transmissions11/solmate), which checks
-all the boxes mentioned thus far, but it doesn't offer type safety.
+**Learn how to use Forge-Std with the [📖 Foundry Book (Forge-Std Guide)](https://book.getfoundry.sh/forge/forge-std.html).**
 
 ## Install
 
-### Foundry
-
-First, run the install step:
-
-```sh
-forge install --no-commit PaulRBerg/prb-math@v3
+```bash
+forge install foundry-rs/forge-std
 ```
 
-Then, add this to your `remappings.txt` file:
+## Contracts
+### stdError
 
-```text
-@prb/math/=lib/prb-math/src/
-```
+This is a helper contract for errors and reverts. In Forge, this contract is particularly helpful for the `expectRevert` cheatcode, as it provides all compiler builtin errors.
 
-### Node.js
+See the contract itself for all error codes.
 
-```sh
-yarn add @prb/math
-# or
-npm install @prb/math
-```
-
-## Usage
-
-There are two user-defined value types:
-
-1. SD59x18 (signed)
-2. UD60x18 (unsigned)
-
-If you don't know what a user-defined value type is, check out [this blog post](https://blog.soliditylang.org/2021/09/27/user-defined-value-types/).
-
-If you don't need negative numbers, there's no point in using the signed flavor `SD59x18`. The unsigned flavor `UD60x18` is more gas efficient.
-
-Note that PRBMath is not a library in the Solidity [sense](https://docs.soliditylang.org/en/v0.8.17/contracts.html#libraries). It's just a collection
-of free functions.
-
-### Importing
-
-It is recommended that you import PRBMath using specific symbols. Importing full files can result in Solidity complaining about duplicate definitions
-and static analyzers like Slither erroring, especially as repos grow and have more dependencies with overlapping names.
+#### Example usage
 
 ```solidity
-pragma solidity >=0.8.13;
 
-import { SD59x18 } from "@prb/math/SD59x18.sol";
-import { UD60x18 } from "@prb/math/UD60x18.sol";
-```
+import "forge-std/Test.sol";
 
-Any function that is not available in the types directly has to be imported explicitly. Here's an example for the `sd` and the `ud` functions:
+contract TestContract is Test {
+    ErrorsTest test;
 
-```solidity
-pragma solidity >=0.8.13;
+    function setUp() public {
+        test = new ErrorsTest();
+    }
 
-import { SD59x18, sd } from "@prb/math/SD59x18.sol";
-import { UD60x18, ud } from "@prb/math/UD60x18.sol";
-```
+    function testExpectArithmetic() public {
+        vm.expectRevert(stdError.arithmeticError);
+        test.arithmeticError(10);
+    }
+}
 
-Note that PRBMath can only be used in [Solidity v0.8.13](https://blog.soliditylang.org/2022/03/16/solidity-0.8.13-release-announcement/) or above.
-
-### SD59x18
-
-```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.13;
-
-import { SD59x18, sd } from "@prb/math/SD59x18.sol";
-
-contract SignedConsumer {
-  /// @notice Calculates 5% of the given signed number.
-  /// @dev Try this with x = 400e18.
-  function signedPercentage(SD59x18 x) external pure returns (SD59x18 result) {
-    SD59x18 fivePercent = sd(0.05e18);
-    result = x.mul(fivePercent);
-  }
-
-  /// @notice Calculates the binary logarithm of the given signed number.
-  /// @dev Try this with x = 128e18.
-  function signedLog2(SD59x18 x) external pure returns (SD59x18 result) {
-    result = x.log2();
-  }
+contract ErrorsTest {
+    function arithmeticError(uint256 a) public {
+        uint256 a = a - 100;
+    }
 }
 ```
 
-### UD60x18
+### stdStorage
 
+This is a rather large contract due to all of the overloading to make the UX decent. Primarily, it is a wrapper around the `record` and `accesses` cheatcodes. It can *always* find and write the storage slot(s) associated with a particular variable without knowing the storage layout. The one _major_ caveat to this is while a slot can be found for packed storage variables, we can't write to that variable safely. If a user tries to write to a packed slot, the execution throws an error, unless it is uninitialized (`bytes32(0)`).
+
+This works by recording all `SLOAD`s and `SSTORE`s during a function call. If there is a single slot read or written to, it immediately returns the slot. Otherwise, behind the scenes, we iterate through and check each one (assuming the user passed in a `depth` parameter). If the variable is a struct, you can pass in a `depth` parameter which is basically the field depth.
+
+I.e.:
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.13;
-
-import { UD60x18, ud } from "@prb/math/UD60x18.sol";
-
-contract UnsignedConsumer {
-  /// @notice Calculates 5% of the given signed number.
-  /// @dev Try this with x = 400e18.
-  function unsignedPercentage(UD60x18 x) external pure returns (UD60x18 result) {
-    UD60x18 fivePercent = ud(0.05e18);
-    result = x.mul(fivePercent);
-  }
-
-  /// @notice Calculates the binary logarithm of the given signed number.
-  /// @dev Try this with x = 128e18.
-  function unsignedLog2(UD60x18 x) external pure returns (UD60x18 result) {
-    result = x.log2();
-  }
+struct T {
+    // depth 0
+    uint256 a;
+    // depth 1
+    uint256 b;
 }
 ```
 
-## Features
-
-There's significant overlap between the functions available in SD59x18 and UD60x18, so I did not duplicate the functions tables below. If in doubt,
-refer to the source code, which is well-documented with NatSpec comments.
-
-### Mathematical Functions
-
-| Name    | Description                                      |
-| ------- | ------------------------------------------------ |
-| `abs`   | Absolute value                                   |
-| `avg`   | Arithmetic average                               |
-| `ceil`  | Smallest whole number greater than or equal to x |
-| `div`   | Fixed-point division                             |
-| `exp`   | Natural exponential e^x                          |
-| `exp2`  | Binary exponential 2^x                           |
-| `floor` | Greatest whole number less than or equal to x    |
-| `frac`  | Fractional part                                  |
-| `gm`    | Geometric mean                                   |
-| `inv`   | Inverse 1÷x                                      |
-| `ln`    | Natural logarithm ln(x)                          |
-| `log10` | Common logarithm log10(x)                        |
-| `log2`  | Binary logarithm log2(x)                         |
-| `mul`   | Fixed-point multiplication                       |
-| `pow`   | Power function x^y                               |
-| `powu`  | Power function x^y with y simple integer         |
-| `sqrt`  | Square root                                      |
-
-### Adjacent Value Types
-
-PRBMath provides adjacent value types that serve as abstractions over other vanilla types such as `int64`. The types currently available are:
-
-| Value Type | Underlying Type |
-| ---------- | --------------- |
-| `SD1x18`   | int64           |
-| `UD2x18`   | uint64          |
-
-These are useful if you want to save gas by using a lower bit width integer, e.g. in a struct.
-
-Note that these types don't have any mathematical functionality. To do math with them, you will have to unwrap them into a simple integer and then to
-the core types `SD59x18` and `UD60x18`.
-
-### Casting Functions
-
-All PRBMath types have casting functions to and from all other types, including a few basic types like `uint128` and `uint40`.
-
-| Name          | Description               |
-| ------------- | ------------------------- |
-| `intoSD1x18`  | Casts a number to SD1x18  |
-| `intoSD59x18` | Casts a number to SD59x18 |
-| `intoUD2x18`  | Casts a number to UD2x18  |
-| `intoUD60x18` | Casts a number to UD60x18 |
-| `intoUint256` | Casts a number to uint256 |
-| `intoUint128` | Casts a number to uint128 |
-| `intoUint40`  | Casts a number to uint40  |
-| `sd1x18`      | Alias for `SD1x18.wrap`   |
-| `sd59x18`     | Alias for `SD59x18.wrap`  |
-| `ud2x18`      | Alias for `UD2x18.wrap`   |
-| `ud60x18`     | Alias for `UD60x18.wrap`  |
-
-### Conversion Functions
-
-The difference between "conversion" and "casting" is that conversion functions multiply or divide the inputs, whereas casting functions simply cast
-them.
-
-| Name               | Description                                                           |
-| ------------------ | --------------------------------------------------------------------- |
-| `convert(SD59x18)` | Converts an SD59x18 number to a simple integer by dividing it by 1e18 |
-| `convert(UD60x18)` | Converts an UD60x18 number to a simple integer by dividing it by 1e18 |
-| `convert(int256)`  | Converts a simple integer to SD59x18 by multiplying it by 1e18        |
-| `convert(uint256)` | Converts a simple integer to UD60x18 type by multiplying it by 1e18   |
-
-### Helper Functions
-
-In addition to the mathematical, casting, and conversion functions, PRBMath provides many other helpers for the user-defined value types, such as
-`add`, `eq`, and `rshift`. These functions are not part of the core API and are frequently updated, so I invite you to take a look at the source code
-to see the full list.
-
-The goal with these helpers is to not have to always unwrap and re-wrap variables to perform such basic operations as addition and equality checks.
-However, you should note that using these functions instead of the vanilla operators (e.g. `+`, `==`, and `>>`) will result in a higher gas cost.
+#### Example usage
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.13;
+import "forge-std/Test.sol";
 
-import { UD60x18, ud } "@prb/math/UD60x18.sol";
+contract TestContract is Test {
+    using stdStorage for StdStorage;
 
-function addRshiftEq() pure returns (bool result) {
-  UD60x18 x = ud(1e18);
-  UD60x18 y = ud(3e18);
-  y = y.add(x);
-  y = y.rshift(2);
-  result = x.eq(y);
+    Storage test;
+
+    function setUp() public {
+        test = new Storage();
+    }
+
+    function testFindExists() public {
+        // Lets say we want to find the slot for the public
+        // variable `exists`. We just pass in the function selector
+        // to the `find` command
+        uint256 slot = stdstore.target(address(test)).sig("exists()").find();
+        assertEq(slot, 0);
+    }
+
+    function testWriteExists() public {
+        // Lets say we want to write to the slot for the public
+        // variable `exists`. We just pass in the function selector
+        // to the `checked_write` command
+        stdstore.target(address(test)).sig("exists()").checked_write(100);
+        assertEq(test.exists(), 100);
+    }
+
+    // It supports arbitrary storage layouts, like assembly based storage locations
+    function testFindHidden() public {
+        // `hidden` is a random hash of a bytes, iteration through slots would
+        // not find it. Our mechanism does
+        // Also, you can use the selector instead of a string
+        uint256 slot = stdstore.target(address(test)).sig(test.hidden.selector).find();
+        assertEq(slot, uint256(keccak256("my.random.var")));
+    }
+
+    // If targeting a mapping, you have to pass in the keys necessary to perform the find
+    // i.e.:
+    function testFindMapping() public {
+        uint256 slot = stdstore
+            .target(address(test))
+            .sig(test.map_addr.selector)
+            .with_key(address(this))
+            .find();
+        // in the `Storage` constructor, we wrote that this address' value was 1 in the map
+        // so when we load the slot, we expect it to be 1
+        assertEq(uint(vm.load(address(test), bytes32(slot))), 1);
+    }
+
+    // If the target is a struct, you can specify the field depth:
+    function testFindStruct() public {
+        // NOTE: see the depth parameter - 0 means 0th field, 1 means 1st field, etc.
+        uint256 slot_for_a_field = stdstore
+            .target(address(test))
+            .sig(test.basicStruct.selector)
+            .depth(0)
+            .find();
+
+        uint256 slot_for_b_field = stdstore
+            .target(address(test))
+            .sig(test.basicStruct.selector)
+            .depth(1)
+            .find();
+
+        assertEq(uint(vm.load(address(test), bytes32(slot_for_a_field))), 1);
+        assertEq(uint(vm.load(address(test), bytes32(slot_for_b_field))), 2);
+    }
 }
 
-```
+// A complex storage contract
+contract Storage {
+    struct UnpackedStruct {
+        uint256 a;
+        uint256 b;
+    }
 
-### Assertions
+    constructor() {
+        map_addr[msg.sender] = 1;
+    }
 
-PRBMath is shipped with typed assertions that you can use for writing tests with [PRBTest](https://github.com/PaulRBerg/prb-test), which is based on
-Foundry. This is useful if, for example, you would like to assert that two SD59x18 or UD60x18 numbers are equal.
+    uint256 public exists = 1;
+    mapping(address => uint256) public map_addr;
+    // mapping(address => Packed) public map_packed;
+    mapping(address => UnpackedStruct) public map_struct;
+    mapping(address => mapping(address => uint256)) public deep_map;
+    mapping(address => mapping(address => UnpackedStruct)) public deep_map_struct;
+    UnpackedStruct public basicStruct = UnpackedStruct({
+        a: 1,
+        b: 2
+    });
 
-```solidity
-pragma solidity >=0.8.13;
-
-import { UD60x18, ud } from "@prb/math/UD60x18.sol";
-import { Assertions as PRBMathAssertions } from "@prb/math/test/Assertions.sol";
-import { PRBTest } from "@prb/math/test/PRBTest.sol";
-
-contract MyTest is PRBTest, PRBMathAssertions {
-  function testAdd() external {
-    UD60x18 x = ud(1e18);
-    UD60x18 y = ud(2e18);
-    UD60x18 z = ud(3e18);
-    assertEq(x.add(y), z);
-  }
+    function hidden() public view returns (bytes32 t) {
+        // an extremely hidden storage slot
+        bytes32 slot = keccak256("my.random.var");
+        assembly {
+            t := sload(slot)
+        }
+    }
 }
 ```
 
-## Gas Efficiency
+### stdCheats
 
-PRBMath is faster than ABDKMath for `abs`, `exp`, `exp2`, `gm`, `inv`, `ln`, `log2`, but it is slower than ABDKMath for `avg`, `div`, `mul`, `powu`
-and `sqrt`.
+This is a wrapper over miscellaneous cheatcodes that need wrappers to be more dev friendly. Currently there are only functions related to `prank`. In general, users may expect ETH to be put into an address on `prank`, but this is not the case for safety reasons. Explicitly this `hoax` function should only be used for address that have expected balances as it will get overwritten. If an address already has ETH, you should just use `prank`. If you want to change that balance explicitly, just use `deal`. If you want to do both, `hoax` is also right for you.
 
-The main reason why PRBMath lags behind ABDKMath's `mul` and `div` functions is that it operates with 256-bit word sizes, and so it has to account for
-possible intermediary overflow. ABDKMath, on the other hand, operates with 128-bit word sizes.
 
-**Note**: I did not find a good way to automatically generate gas reports for PRBMath. See the
-[#134](https://github.com/PaulRBerg/prb-math/discussions/134) discussion for more details about this issue.
+#### Example usage:
+```solidity
 
-### PRBMath
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-Gas estimations based on the [v2.0.1](https://github.com/PaulRBerg/prb-math/releases/tag/v2.0.1) and the
-[v3.0.0](https://github.com/PaulRBerg/prb-math/releases/tag/v3.0.0) releases.
+import "forge-std/Test.sol";
 
-| SD59x18 | Min | Max   | Avg  |     | UD60x18 | Min  | Max   | Avg  |
-| ------- | --- | ----- | ---- | --- | ------- | ---- | ----- | ---- |
-| abs     | 68  | 72    | 70   |     | n/a     | n/a  | n/a   | n/a  |
-| avg     | 95  | 105   | 100  |     | avg     | 57   | 57    | 57   |
-| ceil    | 82  | 117   | 101  |     | ceil    | 78   | 78    | 78   |
-| div     | 431 | 483   | 451  |     | div     | 205  | 205   | 205  |
-| exp     | 38  | 2797  | 2263 |     | exp     | 1874 | 2742  | 2244 |
-| exp2    | 63  | 2678  | 2104 |     | exp2    | 1784 | 2652  | 2156 |
-| floor   | 82  | 117   | 101  |     | floor   | 43   | 43    | 43   |
-| frac    | 23  | 23    | 23   |     | frac    | 23   | 23    | 23   |
-| gm      | 26  | 892   | 690  |     | gm      | 26   | 893   | 691  |
-| inv     | 40  | 40    | 40   |     | inv     | 40   | 40    | 40   |
-| ln      | 463 | 7306  | 4724 |     | ln      | 419  | 6902  | 3814 |
-| log10   | 104 | 9074  | 4337 |     | log10   | 503  | 8695  | 4571 |
-| log2    | 377 | 7241  | 4243 |     | log2    | 330  | 6825  | 3426 |
-| mul     | 455 | 463   | 459  |     | mul     | 219  | 275   | 247  |
-| pow     | 64  | 11338 | 8518 |     | pow     | 64   | 10637 | 6635 |
-| powu    | 293 | 24745 | 5681 |     | powu    | 83   | 24535 | 5471 |
-| sqrt    | 140 | 839   | 716  |     | sqrt    | 114  | 846   | 710  |
+// Inherit the stdCheats
+contract StdCheatsTest is Test {
+    Bar test;
+    function setUp() public {
+        test = new Bar();
+    }
 
-### ABDKMath64x64
+    function testHoax() public {
+        // we call `hoax`, which gives the target address
+        // eth and then calls `prank`
+        hoax(address(1337));
+        test.bar{value: 100}(address(1337));
 
-Gas estimations based on the v3.0 release of ABDKMath. See my [abdk-gas-estimations](https://github.com/PaulRBerg/abdk-gas-estimations) repo.
+        // overloaded to allow you to specify how much eth to
+        // initialize the address with
+        hoax(address(1337), 1);
+        test.bar{value: 1}(address(1337));
+    }
 
-| Method | Min  | Max  | Avg  |
-| ------ | ---- | ---- | ---- |
-| abs    | 88   | 92   | 90   |
-| avg    | 41   | 41   | 41   |
-| div    | 168  | 168  | 168  |
-| exp    | 77   | 3780 | 2687 |
-| exp2   | 77   | 3600 | 2746 |
-| gavg   | 166  | 875  | 719  |
-| inv    | 157  | 157  | 157  |
-| ln     | 7074 | 7164 | 7126 |
-| log2   | 6972 | 7062 | 7024 |
-| mul    | 111  | 111  | 111  |
-| pow    | 303  | 4740 | 1792 |
-| sqrt   | 129  | 809  | 699  |
+    function testStartHoax() public {
+        // we call `startHoax`, which gives the target address
+        // eth and then calls `startPrank`
+        //
+        // it is also overloaded so that you can specify an eth amount
+        startHoax(address(1337));
+        test.bar{value: 100}(address(1337));
+        test.bar{value: 100}(address(1337));
+        vm.stopPrank();
+        test.bar(address(this));
+    }
+}
 
-## Contributing
-
-Feel free to dive in! [Open](https://github.com/PaulRBerg/prb-math/issues/new) an issue,
-[start](https://github.com/PaulRBerg/prb-math/discussions/new) a discussion or submit a PR.
-
-### Pre Requisites
-
-You will need the following software on your machine:
-
-- [Git](https://git-scm.com/downloads)
-- [Foundry](https://github.com/foundry-rs/foundry)
-- [Node.Js](https://nodejs.org/en/download/)
-- [Yarn](https://yarnpkg.com/)
-
-In addition, familiarity with [Solidity](https://soliditylang.org/) is requisite.
-
-### Set Up
-
-Clone this repository including submodules:
-
-```sh
-$ git clone --recurse-submodules -j8 git@github.com:PaulRBerg/prb-math.git
+contract Bar {
+    function bar(address expectedSender) public payable {
+        require(msg.sender == expectedSender, "!prank");
+    }
+}
 ```
 
-Then, inside the project's directory, run this to install the Node.js dependencies:
+### Std Assertions
 
-```sh
-$ yarn install
+Expand upon the assertion functions from the `DSTest` library.
+
+### `console.log`
+
+Usage follows the same format as [Hardhat](https://hardhat.org/hardhat-network/reference/#console-log).
+It's recommended to use `console2.sol` as shown below, as this will show the decoded logs in Forge traces.
+
+```solidity
+// import it indirectly via Test.sol
+import "forge-std/Test.sol";
+// or directly import it
+import "forge-std/console2.sol";
+...
+console2.log(someValue);
 ```
 
-Now you can start making changes.
+If you need compatibility with Hardhat, you must use the standard `console.sol` instead.
+Due to a bug in `console.sol`, logs that use `uint256` or `int256` types will not be properly decoded in Forge traces.
 
-### Syntax Highlighting
-
-You will need the following VSCode extensions:
-
-- [vscode-solidity](https://marketplace.visualstudio.com/items?itemName=JuanBlanco.solidity)
-- [vscode-tree-language](https://marketplace.visualstudio.com/items?itemName=CTC.vscode-tree-extension)
-
-## Security
-
-While I set a high bar for code quality and test coverage, you should not assume that this project is completely safe to use. PRBMath has not been
-audited by a security researcher.
-
-### Caveat Emptor
-
-This is experimental software and is provided on an "as is" and "as available" basis. I do not give any warranties and will not be liable for any
-loss, direct or indirect through continued use of this codebase.
-
-### Contact
-
-If you discover any bugs or security issues, please report them via [Telegram](https://t.me/PaulRBerg).
-
-## Acknowledgments
-
-- Mikhail Vladimirov for the insights he shared in his [Math in Solidity](https://medium.com/coinmonks/math-in-solidity-part-1-numbers-384c8377f26d)
-  series.
-- Remco Bloemen for his work on [overflow-safe multiplication and division](https://xn--2-umb.com/21/muldiv/) and for responding to the questions I
-  asked him while developing the library.
-- Everyone who contributed a PR to this repository.
+```solidity
+// import it indirectly via Test.sol
+import "forge-std/Test.sol";
+// or directly import it
+import "forge-std/console.sol";
+...
+console.log(someValue);
+```
 
 ## License
 
-[MIT](./LICENSE.md) © Paul Razvan Berg
+Forge Standard Library is offered under either [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE) license.
