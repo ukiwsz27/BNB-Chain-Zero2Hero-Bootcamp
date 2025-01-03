@@ -1,8 +1,6 @@
-# Forge Standard Library • [![CI status](https://github.com/foundry-rs/forge-std/actions/workflows/ci.yml/badge.svg)](https://github.com/foundry-rs/forge-std/actions/workflows/ci.yml)
+# Forge Standard Library • [![tests](https://github.com/brockelmore/forge-std/actions/workflows/tests.yml/badge.svg)](https://github.com/brockelmore/forge-std/actions/workflows/tests.yml)
 
-Forge Standard Library is a collection of helpful contracts and libraries for use with [Forge and Foundry](https://github.com/foundry-rs/foundry). It leverages Forge's cheatcodes to make writing tests easier and faster, while improving the UX of cheatcodes.
-
-**Learn how to use Forge-Std with the [📖 Foundry Book (Forge-Std Guide)](https://book.getfoundry.sh/forge/forge-std.html).**
+Forge Standard Library is a collection of helpful contracts for use with [`forge` and `foundry`](https://github.com/gakonst/foundry). It leverages `forge`'s cheatcodes to make writing tests easier and faster, while improving the UX of cheatcodes. For more in-depth usage examples checkout the [tests](https://github.com/brockelmore/forge-std/blob/master/src/test).
 
 ## Install
 
@@ -13,7 +11,7 @@ forge install foundry-rs/forge-std
 ## Contracts
 ### stdError
 
-This is a helper contract for errors and reverts. In Forge, this contract is particularly helpful for the `expectRevert` cheatcode, as it provides all compiler builtin errors.
+This is a helper contract for errors and reverts. In `forge`, this contract is particularly helpful for the `expectRevert` cheatcode, as it provides all compiler builtin errors.
 
 See the contract itself for all error codes.
 
@@ -77,7 +75,7 @@ contract TestContract is Test {
         // Lets say we want to find the slot for the public
         // variable `exists`. We just pass in the function selector
         // to the `find` command
-        uint256 slot = stdstore.target(address(test)).sig("exists()").find();
+        uint256 slot = storage.target(address(test)).sig("exists()").find();
         assertEq(slot, 0);
     }
 
@@ -85,7 +83,7 @@ contract TestContract is Test {
         // Lets say we want to write to the slot for the public
         // variable `exists`. We just pass in the function selector
         // to the `checked_write` command
-        stdstore.target(address(test)).sig("exists()").checked_write(100);
+        storage.target(address(test)).sig("exists()").checked_write(100);
         assertEq(test.exists(), 100);
     }
 
@@ -94,40 +92,40 @@ contract TestContract is Test {
         // `hidden` is a random hash of a bytes, iteration through slots would
         // not find it. Our mechanism does
         // Also, you can use the selector instead of a string
-        uint256 slot = stdstore.target(address(test)).sig(test.hidden.selector).find();
-        assertEq(slot, uint256(keccak256("my.random.var")));
+        uint256 slot = storage.target(address(test)).sig(test.hidden.selector).find();
+        assertEq(slot, keccak256("my.random.var"));
     }
 
     // If targeting a mapping, you have to pass in the keys necessary to perform the find
     // i.e.:
     function testFindMapping() public {
-        uint256 slot = stdstore
+        uint256 slot = storage
             .target(address(test))
             .sig(test.map_addr.selector)
             .with_key(address(this))
             .find();
         // in the `Storage` constructor, we wrote that this address' value was 1 in the map
         // so when we load the slot, we expect it to be 1
-        assertEq(uint(vm.load(address(test), bytes32(slot))), 1);
+        assertEq(vm.load(slot), 1);
     }
 
     // If the target is a struct, you can specify the field depth:
     function testFindStruct() public {
         // NOTE: see the depth parameter - 0 means 0th field, 1 means 1st field, etc.
-        uint256 slot_for_a_field = stdstore
+        uint256 slot_for_a_field = storage
             .target(address(test))
             .sig(test.basicStruct.selector)
             .depth(0)
             .find();
 
-        uint256 slot_for_b_field = stdstore
+        uint256 slot_for_b_field = storage
             .target(address(test))
             .sig(test.basicStruct.selector)
             .depth(1)
             .find();
 
-        assertEq(uint(vm.load(address(test), bytes32(slot_for_a_field))), 1);
-        assertEq(uint(vm.load(address(test), bytes32(slot_for_b_field))), 2);
+        assertEq(vm.load(slot_for_a_field), 1);
+        assertEq(vm.load(slot_for_b_field), 2);
     }
 }
 
@@ -144,16 +142,16 @@ contract Storage {
 
     uint256 public exists = 1;
     mapping(address => uint256) public map_addr;
-    // mapping(address => Packed) public map_packed;
+    mapping(address => Packed) public map_packed;
     mapping(address => UnpackedStruct) public map_struct;
     mapping(address => mapping(address => uint256)) public deep_map;
     mapping(address => mapping(address => UnpackedStruct)) public deep_map_struct;
     UnpackedStruct public basicStruct = UnpackedStruct({
         a: 1,
-        b: 2
+        b: 2,
     });
 
-    function hidden() public view returns (bytes32 t) {
+    function hidden() public returns (bytes32 t) {
         // an extremely hidden storage slot
         bytes32 slot = keccak256("my.random.var");
         assembly {
@@ -171,7 +169,7 @@ This is a wrapper over miscellaneous cheatcodes that need wrappers to be more de
 #### Example usage:
 ```solidity
 
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
@@ -215,27 +213,9 @@ contract Bar {
 }
 ```
 
-### Std Assertions
-
-Expand upon the assertion functions from the `DSTest` library.
-
 ### `console.log`
 
-Usage follows the same format as [Hardhat](https://hardhat.org/hardhat-network/reference/#console-log).
-It's recommended to use `console2.sol` as shown below, as this will show the decoded logs in Forge traces.
-
-```solidity
-// import it indirectly via Test.sol
-import "forge-std/Test.sol";
-// or directly import it
-import "forge-std/console2.sol";
-...
-console2.log(someValue);
-```
-
-If you need compatibility with Hardhat, you must use the standard `console.sol` instead.
-Due to a bug in `console.sol`, logs that use `uint256` or `int256` types will not be properly decoded in Forge traces.
-
+Usage follows the same format as [Hardhat](https://hardhat.org/hardhat-network/reference/#console-log):
 ```solidity
 // import it indirectly via Test.sol
 import "forge-std/Test.sol";
@@ -244,7 +224,3 @@ import "forge-std/console.sol";
 ...
 console.log(someValue);
 ```
-
-## License
-
-Forge Standard Library is offered under either [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE) license.
