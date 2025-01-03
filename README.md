@@ -1,250 +1,232 @@
-# Forge Standard Library • [![CI status](https://github.com/foundry-rs/forge-std/actions/workflows/ci.yml/badge.svg)](https://github.com/foundry-rs/forge-std/actions/workflows/ci.yml)
+# PRBTest [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license]
 
-Forge Standard Library is a collection of helpful contracts and libraries for use with [Forge and Foundry](https://github.com/foundry-rs/foundry). It leverages Forge's cheatcodes to make writing tests easier and faster, while improving the UX of cheatcodes.
+[gha]: https://github.com/PaulRBerg/prb-test/actions
+[gha-badge]: https://github.com/PaulRBerg/prb-test/actions/workflows/ci.yml/badge.svg
+[foundry]: https://getfoundry.sh/
+[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
+[license]: https://opensource.org/licenses/MIT
+[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
 
-**Learn how to use Forge-Std with the [📖 Foundry Book (Forge-Std Guide)](https://book.getfoundry.sh/forge/forge-std.html).**
+PRBTest is a modern collection of testing assertions and logging utilities for Solidity, and is meant to be a drop-in
+replacement for DSTest.
+
+- Feature-packed: assertions for equalities, inequalities, approximate equalities, numerical comparisons, and more
+- Type-rich: every assertion has overloads for `address`, `bytes`, `bytes32`, `int256`, `string` and `uint256`
+- Versioned releases so that you don't accidentally pull the latest version and break your test suites
+- Meant to be used with Foundry, but can also be used with Hardhat
+- Complementary to Forge Std
+- Designed for Solidity >=0.8.0
+- Thoroughly tested
 
 ## Install
 
-```bash
-forge install foundry-rs/forge-std
+### Foundry
+
+First, run the install step:
+
+```sh
+forge install --no-commit PaulRBerg/prb-test@v0
 ```
 
-## Contracts
-### stdError
+Your `.gitmodules` file should now contain the following entry:
 
-This is a helper contract for errors and reverts. In Forge, this contract is particularly helpful for the `expectRevert` cheatcode, as it provides all compiler builtin errors.
+```toml
+[submodule "lib/prb-test"]
+  branch = "v0"
+  path = "lib/prb-test"
+  url = "https://github.com/PaulRBerg/prb-test"
+```
 
-See the contract itself for all error codes.
+Finally, add this to your `remappings.txt` file:
 
-#### Example usage
+```text
+@prb/test/=lib/prb-test/src/
+```
+
+### Node.js
+
+```sh
+yarn add @prb/test
+# or
+npm install @prb/test
+```
+
+### Template
+
+If you're starting a project from scratch, the easiest way to install PRBTest is to use my [Foundry
+template][my-foundry-template], since it comes pre-configured with PRBTest.
+
+## Usage
+
+Once installed, all you need to do is import `PRBTest` and inherit from it in your test contract. `PRBTest` comes with a
+pre-instantiated [cheatcodes](https://book.getfoundry.sh/cheatcodes/) environment accessible via the `vm` property. It
+also has support for logs.
 
 ```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.8.0;
 
-import "forge-std/Test.sol";
+import { PRBTest } from "@prb/test/PRBTest.sol";
 
-contract TestContract is Test {
-    ErrorsTest test;
-
-    function setUp() public {
-        test = new ErrorsTest();
-    }
-
-    function testExpectArithmetic() public {
-        vm.expectRevert(stdError.arithmeticError);
-        test.arithmeticError(10);
-    }
-}
-
-contract ErrorsTest {
-    function arithmeticError(uint256 a) public {
-        uint256 a = a - 100;
-    }
+contract MyTest is PRBTest {
+  function testExample() external {
+    vm.warp(block.timestamp + 100);
+    emit Log("Hello World");
+    assertTrue(true);
+  }
 }
 ```
 
-### stdStorage
+### Assertions
 
-This is a rather large contract due to all of the overloading to make the UX decent. Primarily, it is a wrapper around the `record` and `accesses` cheatcodes. It can *always* find and write the storage slot(s) associated with a particular variable without knowing the storage layout. The one _major_ caveat to this is while a slot can be found for packed storage variables, we can't write to that variable safely. If a user tries to write to a packed slot, the execution throws an error, unless it is uninitialized (`bytes32(0)`).
+All assertions have overloads with an additional `err` argument, so that you can pass custom error messages.
 
-This works by recording all `SLOAD`s and `SSTORE`s during a function call. If there is a single slot read or written to, it immediately returns the slot. Otherwise, behind the scenes, we iterate through and check each one (assuming the user passed in a `depth` parameter). If the variable is a struct, you can pass in a `depth` parameter which is basically the field depth.
+| Name             | Argument Types                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| `assertTrue`     | `bool`                                                                                   |
+| `assertFalse`    | `bool`                                                                                   |
+| `assertEq`       | `address`, `bytes`, `bytes32`, `int256`, `string`, `uint256` and their array equivalents |
+| `assertNotEq`    | `address`, `bytes`, `bytes32`, `int256`, `string`, `uint256` and their array equivalents |
+| `assertAlmostEq` | `int256` and `uint256`                                                                   |
+| `assertGt`       | `int256` and `uint256`                                                                   |
+| `assertGte`      | `int256` and `uint256`                                                                   |
+| `assertLt`       | `int256` and `uint256`                                                                   |
+| `assertLte`      | `int256` and `uint256`                                                                   |
+| `assertContains` | `address[]`, `bytes32[]`, `int256[]`, `string[]`, and `uint256[]`                        |
 
-I.e.:
-```solidity
-struct T {
-    // depth 0
-    uint256 a;
-    // depth 1
-    uint256 b;
-}
-```
+### Forge Std
 
-#### Example usage
+PRBTest can be used alongside all testing utilities from [forge-std][forge-std], except for their [Test][forge-std-test]
+contract.
+
+Here's an example for how to use PRBTest with `StdCheats` and `stdError`:
 
 ```solidity
-import "forge-std/Test.sol";
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.8.0;
 
-contract TestContract is Test {
-    using stdStorage for StdStorage;
+import { PRBTest } from "@prb/test/PRBTest.sol";
+import { StdCheats } from "forge-std/StdCheats.sol";
+import { stdError } from "forge-std/Test.sol";
 
-    Storage test;
-
-    function setUp() public {
-        test = new Storage();
-    }
-
-    function testFindExists() public {
-        // Lets say we want to find the slot for the public
-        // variable `exists`. We just pass in the function selector
-        // to the `find` command
-        uint256 slot = stdstore.target(address(test)).sig("exists()").find();
-        assertEq(slot, 0);
-    }
-
-    function testWriteExists() public {
-        // Lets say we want to write to the slot for the public
-        // variable `exists`. We just pass in the function selector
-        // to the `checked_write` command
-        stdstore.target(address(test)).sig("exists()").checked_write(100);
-        assertEq(test.exists(), 100);
-    }
-
-    // It supports arbitrary storage layouts, like assembly based storage locations
-    function testFindHidden() public {
-        // `hidden` is a random hash of a bytes, iteration through slots would
-        // not find it. Our mechanism does
-        // Also, you can use the selector instead of a string
-        uint256 slot = stdstore.target(address(test)).sig(test.hidden.selector).find();
-        assertEq(slot, uint256(keccak256("my.random.var")));
-    }
-
-    // If targeting a mapping, you have to pass in the keys necessary to perform the find
-    // i.e.:
-    function testFindMapping() public {
-        uint256 slot = stdstore
-            .target(address(test))
-            .sig(test.map_addr.selector)
-            .with_key(address(this))
-            .find();
-        // in the `Storage` constructor, we wrote that this address' value was 1 in the map
-        // so when we load the slot, we expect it to be 1
-        assertEq(uint(vm.load(address(test), bytes32(slot))), 1);
-    }
-
-    // If the target is a struct, you can specify the field depth:
-    function testFindStruct() public {
-        // NOTE: see the depth parameter - 0 means 0th field, 1 means 1st field, etc.
-        uint256 slot_for_a_field = stdstore
-            .target(address(test))
-            .sig(test.basicStruct.selector)
-            .depth(0)
-            .find();
-
-        uint256 slot_for_b_field = stdstore
-            .target(address(test))
-            .sig(test.basicStruct.selector)
-            .depth(1)
-            .find();
-
-        assertEq(uint(vm.load(address(test), bytes32(slot_for_a_field))), 1);
-        assertEq(uint(vm.load(address(test), bytes32(slot_for_b_field))), 2);
-    }
-}
-
-// A complex storage contract
-contract Storage {
-    struct UnpackedStruct {
-        uint256 a;
-        uint256 b;
-    }
-
-    constructor() {
-        map_addr[msg.sender] = 1;
-    }
-
-    uint256 public exists = 1;
-    mapping(address => uint256) public map_addr;
-    // mapping(address => Packed) public map_packed;
-    mapping(address => UnpackedStruct) public map_struct;
-    mapping(address => mapping(address => uint256)) public deep_map;
-    mapping(address => mapping(address => UnpackedStruct)) public deep_map_struct;
-    UnpackedStruct public basicStruct = UnpackedStruct({
-        a: 1,
-        b: 2
-    });
-
-    function hidden() public view returns (bytes32 t) {
-        // an extremely hidden storage slot
-        bytes32 slot = keccak256("my.random.var");
-        assembly {
-            t := sload(slot)
-        }
-    }
+contract MyTest is PRBTest, StdCheats {
+  function testArithmeticOverflow() external {
+    uint256 a = type(uint256).max;
+    uint256 b = 1;
+    vm.expectRevert(stdError.arithmeticError);
+    a + b;
+  }
 }
 ```
 
-### stdCheats
+## Why Choose PRBTest Over DSTest?
 
-This is a wrapper over miscellaneous cheatcodes that need wrappers to be more dev friendly. Currently there are only functions related to `prank`. In general, users may expect ETH to be put into an address on `prank`, but this is not the case for safety reasons. Explicitly this `hoax` function should only be used for address that have expected balances as it will get overwritten. If an address already has ETH, you should just use `prank`. If you want to change that balance explicitly, just use `deal`. If you want to do both, `hoax` is also right for you.
+[DSTest][ds-test] is great. I have used it for a while, and I like it a lot. But, with time, I slowly came to realize
+that there's a lot of room for improvement.
 
+### 1. Missing Features and Tests
 
-#### Example usage:
-```solidity
+DSTest is incomplete. Some commonly needed assertions, like equality assertions for arrays, `assertEq(bool,bool)` and
+`assertNotEq`, are missing from DSTest. PRBTest fills these gaps, and then some.
 
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+Also, the DSTest testing assertions are not themselves tested. Whereas the PRBTest testing assertions are tested, and in
+fact they are quite thoroughly tested. All other things being equal, this should give you more confidence that your
+tests do what you intend them to do.
 
-import "forge-std/Test.sol";
+### 2. No Release Versioning
 
-// Inherit the stdCheats
-contract StdCheatsTest is Test {
-    Bar test;
-    function setUp() public {
-        test = new Bar();
-    }
+DSTest doesn't version its releases, which makes it difficult to future-proof consumer repos. It's quite easy to
+accidentally update your git submodules and thus break your test suites. For
+[some users](https://github.com/dapphub/ds-test/issues/32), this is a real pain.
 
-    function testHoax() public {
-        // we call `hoax`, which gives the target address
-        // eth and then calls `prank`
-        hoax(address(1337));
-        test.bar{value: 100}(address(1337));
+PRBTest is versioned via tags and branches and all changes are tracked in a [CHANGELOG](./CHANGELOG.md) file. I maintain
+redundant branches for each release because git submodules
+[don't support tags](https://stackoverflow.com/q/1777854/3873510).
 
-        // overloaded to allow you to specify how much eth to
-        // initialize the address with
-        hoax(address(1337), 1);
-        test.bar{value: 1}(address(1337));
-    }
+I will strive to follow the [semver](https://semver.org/) versioning scheme, though I won't do this before the v1.0
+release, and it might not always be feasible.
 
-    function testStartHoax() public {
-        // we call `startHoax`, which gives the target address
-        // eth and then calls `startPrank`
-        //
-        // it is also overloaded so that you can specify an eth amount
-        startHoax(address(1337));
-        test.bar{value: 100}(address(1337));
-        test.bar{value: 100}(address(1337));
-        vm.stopPrank();
-        test.bar(address(this));
-    }
-}
+### 3. Path Dependence
 
-contract Bar {
-    function bar(address expectedSender) public payable {
-        require(msg.sender == expectedSender, "!prank");
-    }
-}
+As one of the maintainers of DSTest said [here](https://github.com/dapphub/ds-test/pull/21#issuecomment-903668033),
+updating DSTest is painful to orchestrate. The reasons for this are twofold:
+
+1. Every DappTools project uses it as a git submodule.
+2. DSTest releases have not been versioned.
+
+So any significant change in DSTest might wreak havoc downstream.
+
+This issue has led to a "balkanization" of DSTest forks and extensions. See, for instance, Solmate's
+[DSTestPlus][ds-test-plus] and Forge Std's [Test][forge-std-test]. Also see the discussions in this
+[PR](https://github.com/foundry-rs/forge-std/pull/38), in which the PR author ended up making the PR against `forge-std`
+rather than `ds-test` because he feared that his PR won't be merged.
+
+### 4. Lack of Backward Compatibility with Node.js
+
+It is my firm conviction that Foundry is the future of Ethereum smart contract development. Solidity code is best tested
+in Solidity itself.
+
+But, due to various historical reasons, the Ethereum ecosystem has for a long time relied upon JavaScript for testing
+smart contracts. Refactoring a code base from Hardhat or Truffle to Foundry takes time, and it may not always be
+possible to do it in one fell swoop. Thus, to ensure backward compatibility, PRBTest is available as a Node.js package
+in the npm package registry.
+
+For more details about this, see this discussion [here](https://github.com/dapphub/ds-test/issues/35).
+
+## Contributing
+
+Feel free to dive in! [Open](https://github.com/paulrberb/prb-test/issues/new) an issue,
+[start](https://github.com/paulrberb/prb-test/discussions/new) a discussion or submit a PR.
+
+### Pre Requisites
+
+You will need the following software on your machine:
+
+- [Git](https://git-scm.com/downloads)
+- [Foundry](https://github.com/foundry-rs/foundry)
+- [Node.Js](https://nodejs.org/en/download/)
+- [Yarn](https://yarnpkg.com/)
+
+In addition, familiarity with [Solidity](https://soliditylang.org/) is requisite.
+
+### Set Up
+
+Clone this repository including submodules:
+
+```sh
+$ git clone --recurse-submodules -j8 git@github.com:PaulRBerg/prb-test.git
 ```
 
-### Std Assertions
+Then, inside the project's directory, run this to install the Node.js dependencies:
 
-Expand upon the assertion functions from the `DSTest` library.
-
-### `console.log`
-
-Usage follows the same format as [Hardhat](https://hardhat.org/hardhat-network/reference/#console-log).
-It's recommended to use `console2.sol` as shown below, as this will show the decoded logs in Forge traces.
-
-```solidity
-// import it indirectly via Test.sol
-import "forge-std/Test.sol";
-// or directly import it
-import "forge-std/console2.sol";
-...
-console2.log(someValue);
+```sh
+$ yarn install
 ```
 
-If you need compatibility with Hardhat, you must use the standard `console.sol` instead.
-Due to a bug in `console.sol`, logs that use `uint256` or `int256` types will not be properly decoded in Forge traces.
+Now you can start making changes.
 
-```solidity
-// import it indirectly via Test.sol
-import "forge-std/Test.sol";
-// or directly import it
-import "forge-std/console.sol";
-...
-console.log(someValue);
-```
+### Syntax Highlighting
+
+You will need the following VSCode extensions:
+
+- [vscode-solidity](https://marketplace.visualstudio.com/items?itemName=JuanBlanco.solidity)
+
+## Acknowledgements
+
+These contracts were inspired by or directly modified from the following sources:
+
+- [dapphub/ds-test](https://github.com/dapphub/ds-test/)
+- [foundry-rs/forge-std](https://github.com/foundry-rs/forge-std/)
 
 ## License
 
-Forge Standard Library is offered under either [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE) license.
+[MIT](./LICENSE.md) © Paul Razvan Berg
+
+<!-- Links -->
+
+[ds-test]: https://github.com/dapphub/ds-test
+[ds-test-plus]:
+  https://github.com/Rari-Capital/solmate/blob/03e425421b24c4f75e4a3209b019b367847b7708/src/test/utils/DSTestPlus.sol
+[forge-std]: https://github.com/foundry-rs/forge-std
+[forge-std-test]: https://github.com/foundry-rs/forge-std/blob/c19dfd2f2a88a461216b0dd1f4961e1a85dcad46/src/Test.sol
+[my-foundry-template]: https://github.com/paulrberg/foundry-template
