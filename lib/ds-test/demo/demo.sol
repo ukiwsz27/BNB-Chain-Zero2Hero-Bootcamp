@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity >=0.5.0;
+pragma solidity >=0.4.23;
 
 import "../src/test.sol";
 
@@ -12,46 +12,47 @@ contract DemoTest is DSTest {
         emit log("a string");
 
         emit log("-- log_named_uint(string, uint)");
-        emit log_named_uint("uint", 512);
+        log_named_uint("uint", 512);
 
         emit log("-- log_named_int(string, int)");
-        emit log_named_int("int", -512);
+        log_named_int("int", -512);
 
         emit log("-- log_named_address(string, address)");
-        emit log_named_address("address", address(this));
+        log_named_address("address", address(this));
 
         emit log("-- log_named_bytes32(string, bytes32)");
-        emit log_named_bytes32("bytes32", "a string");
+        log_named_bytes32("bytes32", "a string");
 
         emit log("-- log_named_bytes(string, bytes)");
-        emit log_named_bytes("bytes", hex"cafefe");
+        log_named_bytes("bytes", hex"cafefe");
 
         emit log("-- log_named_string(string, string)");
-        emit log_named_string("string", "a string");
+        log_named_string("string", "a string");
 
         emit log("-- log_named_decimal_uint(string, uint, uint)");
-        emit log_named_decimal_uint("decimal uint", 1.0e18, 18);
+        log_named_decimal_uint("decimal uint", 1.0e18, 18);
 
         emit log("-- log_named_decimal_int(string, int, uint)");
-        emit log_named_decimal_int("decimal int", -1.0e18, 18);
+        log_named_decimal_int("decimal int", -1.0e18, 18);
     }
     event log_old_named_uint(bytes32,uint);
     function test_old_logs() public {
-        emit log_old_named_uint("key", 500);
-        emit log_named_bytes32("bkey", "val");
+        log_old_named_uint("key", 500);
+        log_named_bytes32("bkey", "val");
     }
     function test_trace() public view {
         this.echo("string 1", "string 2");
     }
     function test_multiline() public {
-        emit log("a multiline\\nstring");
-        emit log("a multiline string");
-        emit log_bytes("a string");
-        emit log_bytes("a multiline\nstring");
-        emit log_bytes("a multiline\\nstring");
-        emit logs(hex"0000");
-        emit log_named_bytes("0x0000", hex"0000");
-        emit logs(hex"ff");
+        emit log("a multiline\\n" "string");
+        emit log("a multiline " "string");
+        log_bytes("a string");
+        log_bytes("a multiline\n" "string");
+        log_bytes("a multiline\\n" "string");
+        emit log(unicode"Ώ");
+        logs(hex"0000");
+        log_named_bytes("0x0000", hex"0000");
+        logs(hex"ff");
     }
     function echo(string memory s1, string memory s2) public pure
         returns (string memory, string memory)
@@ -60,7 +61,7 @@ contract DemoTest is DSTest {
     }
 
     function prove_this(uint x) public {
-        emit log_named_uint("sym x", x);
+        log_named_uint("sym x", x);
         assertGt(x + 1, 0);
     }
 
@@ -209,7 +210,7 @@ contract DemoTest is DSTest {
 
         emit log("\n## assertEq0(bytes,bytes)\n");
         assertEq0(hex"abcdef01", hex"abcdef02");
-        emit log("\n");
+        log("\n");
         assertEq0(hex"abcdef01", hex"abcdef02", err);
     }
 }
